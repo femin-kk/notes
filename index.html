@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0F1117">
+<title>Cards</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<style>
+  :root {
+    --bg: #0F1117;
+    --surface: #1C1F2E;
+    --surface2: #252837;
+    --border: #2E3247;
+    --text: #E8EAF0;
+    --text-muted: #7B82A0;
+    --accent: #F5A623;
+    --accent-dim: rgba(245,166,35,0.12);
+
+    --block-location: #4A9EFF;
+    --block-checklist: #52C97A;
+    --block-contact: #B07EFF;
+    --block-copy: #FF7A5C;
+    --block-note: #7B82A0;
+    --block-number: #FFD166;
+    --block-route: #4AC9FF;
+    --block-reminder: #FF6B9D;
+    --block-price: #52C97A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,17,23,0.92);
+    backdrop-filter: blur(12px);
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-row1 {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .app-title { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; flex: 1; }
+  .btn-icon {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px; flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .btn-icon:active { background: var(--surface2); }
+  .btn-icon.accent { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px;
+  }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-size: 15px; flex: 1;
+    font-family: inherit;
+  }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .search-icon { color: var(--text-muted); font-size: 14px; }
+
+  /* ── TAG FILTER ── */
+  .tag-bar {
+    padding: 8px 16px; display: flex; gap: 8px; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .tag-bar::-webkit-scrollbar { display: none; }
+  .tag-chip {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 12px; font-weight: 500;
+    padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+    cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .tag-chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* ── CARD GRID ── */
+  .cards-area { padding: 12px 16px 100px; }
+  .cards-grid {
+    display: grid; grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  @media (min-width: 600px) {
+    .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .card:active { transform: scale(0.98); }
+  .card-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .card-tag {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 7px; border-radius: 6px;
+    background: rgba(245,166,35,0.12); color: var(--accent);
+  }
+  .card-menu-btn {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 18px; cursor: pointer; padding: 0 4px; flex-shrink: 0;
+    line-height: 1;
+  }
+  .card-blocks { padding: 10px 0; }
+
+  /* ── BLOCKS ── */
+  .block {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 16px;
+    border-left: 3px solid transparent;
+    position: relative;
+  }
+  .block-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .block-body { flex: 1; min-width: 0; }
+  .block-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 2px; }
+  .block-value { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .block-value.mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; }
+
+  .block.location { border-left-color: var(--block-location); }
+  .block.checklist { border-left-color: var(--block-checklist); }
+  .block.contact { border-left-color: var(--block-contact); }
+  .block.copy { border-left-color: var(--block-copy); }
+  .block.note { border-left-color: var(--block-note); }
+  .block.number { border-left-color: var(--block-number); }
+  .block.route { border-left-color: var(--block-route); }
+  .block.reminder { border-left-color: var(--block-reminder); }
+  .block.price { border-left-color: var(--block-price); }
+
+  .block-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .btn-action {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; font-weight: 500;
+    padding: 5px 10px; border-radius: 8px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: background 0.15s;
+  }
+  .btn-action:active { background: var(--border); }
+  .btn-action.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  /* Checklist */
+  .checklist-items { display: flex; flex-direction: column; gap: 6px; }
+  .checklist-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checklist-item input[type=checkbox] { display: none; }
+  .check-box {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 2px solid var(--block-checklist); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .checklist-item.checked .check-box { background: var(--block-checklist); }
+  .checklist-item.checked .check-box::after { content: '✓'; color: #000; font-size: 11px; font-weight: 700; }
+  .checklist-item.checked .check-label { text-decoration: line-through; color: var(--text-muted); }
+  .check-label { font-size: 14px; color: var(--text); }
+
+  /* Note markdown */
+  .note-content { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .note-content p { margin-bottom: 4px; }
+  .note-content strong { color: var(--accent); }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    text-align: center; padding: 60px 20px; color: var(--text-muted);
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .empty p { font-size: 14px; line-height: 1.6; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #000;
+    font-size: 14px; font-weight: 600; padding: 12px 20px;
+    border-radius: 12px; border: none; cursor: pointer;
+    margin-top: 20px; transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.85; }
+
+  /* ── MODAL OVERLAY ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    width: 100%; max-height: 92dvh;
+    display: flex; flex-direction: column;
+    transform: translateY(40px); transition: transform 0.25s ease;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-handle {
+    width: 36px; height: 4px; background: var(--border);
+    border-radius: 2px; margin: 12px auto 0;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-muted); width: 30px; height: 30px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px;
+  }
+  .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+  .modal-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 10px;
+  }
+  .btn-secondary {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 14px; font-weight: 600;
+    padding: 12px; border-radius: 12px; cursor: pointer;
+  }
+  .btn-confirm {
+    flex: 2; background: var(--accent); border: none;
+    color: #000; font-size: 14px; font-weight: 700;
+    padding: 12px; border-radius: 12px; cursor: pointer;
+  }
+
+  /* ── EDITOR ── */
+  .editor-section { margin-bottom: 20px; }
+  .editor-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 6px;
+    display: block;
+  }
+  .editor-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 15px; padding: 10px 14px;
+    border-radius: 10px; outline: none; font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .editor-input:focus { border-color: var(--accent); }
+  .editor-textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; padding: 10px 14px;
+    border-radius: 10px; outline: none; font-family: 'JetBrains Mono', monospace;
+    resize: vertical; min-height: 200px; line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  .editor-textarea:focus { border-color: var(--accent); }
+  .editor-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+  /* block type selector */
+  .block-type-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
+  }
+  .block-type-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 12px; font-weight: 500;
+    padding: 10px 6px; border-radius: 10px; cursor: pointer;
+    text-align: center; transition: all 0.15s; display: flex;
+    flex-direction: column; align-items: center; gap: 4px;
+  }
+  .block-type-btn .bt-icon { font-size: 18px; }
+  .block-type-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* block editor rows */
+  .block-editor-row {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; margin-bottom: 10px;
+    position: relative;
+  }
+  .block-editor-row .block-type-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .block-remove-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none; color: var(--text-muted);
+    font-size: 16px; cursor: pointer; padding: 2px;
+  }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .editor-input { flex: 1; }
+
+  /* add block button */
+  .add-block-area {
+    border: 1.5px dashed var(--border); border-radius: 12px;
+    padding: 14px; text-align: center; cursor: pointer;
+    color: var(--text-muted); font-size: 14px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .add-block-area:active { border-color: var(--accent); color: var(--accent); }
+
+  /* tags input */
+  .tags-input-wrap {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; cursor: text;
+  }
+  .tag-pill {
+    background: var(--accent-dim); border: 1px solid var(--accent);
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;
+  }
+  .tag-pill-remove { cursor: pointer; font-size: 14px; line-height: 1; }
+  .tags-input-wrap input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-size: 14px; flex: 1; min-width: 80px;
+    font-family: inherit;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; font-weight: 500;
+    padding: 10px 18px; border-radius: 20px;
+    opacity: 0; transition: all 0.25s; z-index: 999;
+    white-space: nowrap; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 24px; right: 20px; z-index: 150;
+    width: 56px; height: 56px; border-radius: 16px;
+    background: var(--accent); color: #000; font-size: 24px;
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(245,166,35,0.35);
+    transition: transform 0.15s;
+  }
+  .fab:active { transform: scale(0.93); }
+
+  /* ── FILE STATUS ── */
+  .status-bar {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--block-checklist); }
+  .status-dot.error { background: var(--block-reminder); }
+  .status-dot.idle { background: var(--text-muted); }
+
+  /* card detail view */
+  .detail-block {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-block:last-child { border-bottom: none; }
+
+  /* reminder date badge */
+  .reminder-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,107,157,0.12); border: 1px solid rgba(255,107,157,0.3);
+    color: var(--block-reminder); font-size: 13px; font-weight: 600;
+    padding: 4px 10px; border-radius: 8px;
+  }
+  .reminder-badge.past { opacity: 0.5; }
+  .reminder-badge.soon {
+    background: rgba(245,166,35,0.12); border-color: rgba(245,166,35,0.3);
+    color: var(--accent);
+  }
+
+  /* scroll hint */
+  .scroll-hint { font-size: 11px; color: var(--text-muted); padding: 4px 16px 8px; }
+
+  /* folder badge */
+  .folder-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 8px; font-size: 12px;
+    color: var(--text-muted); cursor: pointer;
+  }
+  .folder-badge:active { border-color: var(--accent); }
+
+  .section-divider {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-muted);
+    padding: 8px 0 4px; margin-bottom: 4px;
+  }
+
+  /* price block */
+  .price-value {
+    font-size: 22px; font-weight: 700; color: var(--block-price);
+    letter-spacing: -0.5px;
+  }
+  .price-currency { font-size: 14px; font-weight: 500; margin-right: 2px; }
+
+  /* number value */
+  .number-value {
+    font-size: 20px; font-weight: 700; color: var(--block-number);
+  }
+
+  /* route display */
+  .route-row { display: flex; gap: 16px; }
+  .route-item { display: flex; flex-direction: column; gap: 2px; }
+  .route-item-val { font-size: 16px; font-weight: 700; color: var(--block-route); }
+  .route-item-label { font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-row1">
+    <span class="app-title">Cards</span>
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot idle" id="statusDot"></div>
+      <span id="statusText">No folder</span>
+    </div>
+    <button class="btn-icon" onclick="openFolder()" title="Open folder">📁</button>
+    <button class="btn-icon" onclick="refreshCards()" title="Refresh">↻</button>
+  </div>
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search cards…" oninput="filterCards()">
+  </div>
+</div>
+
+<div class="tag-bar" id="tagBar"></div>
+
+<!-- MAIN CONTENT -->
+<div class="cards-area">
+  <div class="cards-grid" id="cardsGrid"></div>
+  <div id="emptyState" class="empty" style="display:none">
+    <div class="empty-icon">🗂️</div>
+    <h3>No cards yet</h3>
+    <p>Open a folder containing your YAML card files, or create your first card.</p>
+    <button class="btn-primary" onclick="openFolder()">📁 Open Folder</button>
+    <br>
+    <button class="btn-primary" style="margin-top:10px; background:var(--surface2); color:var(--text); border:1px solid var(--border);" onclick="showEditor()">✚ New Card</button>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="showEditor()" title="New card">+</button>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- CARD DETAIL MODAL -->
+<div class="modal-overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="modal" id="detailModal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="detailTitle"></div>
+        <div class="card-tags" id="detailTags" style="margin-top:4px"></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-icon" onclick="editCurrentCard()" style="width:32px;height:32px">✏️</button>
+        <button class="modal-close" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- EDITOR MODAL -->
+<div class="modal-overlay" id="editorOverlay" onclick="closeEditor(event)">
+  <div class="modal" id="editorModal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="editorTitle">New Card</div>
+      <button class="modal-close" onclick="closeEditor()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Title -->
+      <div class="editor-section">
+        <label class="editor-label">Card Title</label>
+        <input class="editor-input" id="editorCardTitle" placeholder="e.g. HDFC ATM" type="text">
+      </div>
+      <!-- Tags -->
+      <div class="editor-section">
+        <label class="editor-label">Tags</label>
+        <div class="tags-input-wrap" id="tagsInputWrap" onclick="document.getElementById('tagInput').focus()">
+          <input id="tagInput" placeholder="Add tag, press Enter" onkeydown="handleTagInput(event)">
+        </div>
+      </div>
+      <!-- Blocks -->
+      <div class="editor-section">
+        <label class="editor-label">Blocks</label>
+        <div id="blockEditorList"></div>
+        <div class="add-block-area" onclick="showAddBlockPanel()">+ Add Block</div>
+      </div>
+      <!-- Add block panel -->
+      <div id="addBlockPanel" style="display:none; margin-top:12px;">
+        <div class="section-divider">Choose block type</div>
+        <div class="block-type-grid" id="blockTypeGrid"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeEditor()">Cancel</button>
+      <button class="btn-confirm" onclick="saveCard()">Save Card</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let cards = [];
+let filteredCards = [];
+let activeTags = new Set();
+let dirHandle = null;
+let currentCard = null;
+let editingCardFile = null;
+let editorTags = [];
+
+const BLOCK_TYPES = [
+  { type: 'location', icon: '📍', label: 'Location' },
+  { type: 'checklist', icon: '☑️', label: 'Checklist' },
+  { type: 'contact', icon: '📞', label: 'Contact' },
+  { type: 'copy', icon: '📋', label: 'Copy Text' },
+  { type: 'note', icon: '📝', label: 'Note' },
+  { type: 'number', icon: '🔢', label: 'Number' },
+  { type: 'route', icon: '🚗', label: 'Route' },
+  { type: 'reminder', icon: '🔔', label: 'Reminder' },
+  { type: 'price', icon: '💰', label: 'Price' },
+  { type: 'multiline', icon: '📄', label: 'Multiline' },
+];
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', async () => {
+  await restoreFolder();
+  buildBlockTypeGrid();
+});
+
+// ── FOLDER ACCESS ──
+async function openFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await saveHandleToIDB(dirHandle);
+    await loadAllCards();
+    setStatus('green', dirHandle.name);
+  } catch(e) {
+    if (e.name !== 'AbortError') showToast('Could not open folder');
+  }
+}
+
+async function restoreFolder() {
+  try {
+    dirHandle = await getHandleFromIDB();
+    if (dirHandle) {
+      const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        await loadAllCards();
+        setStatus('green', dirHandle.name);
+        return;
+      }
+      setStatus('idle', 'Tap 📁 to reconnect');
+    }
+  } catch(e) {}
+  showEmptyState();
+}
+
+async function refreshCards() {
+  if (!dirHandle) { openFolder(); return; }
+  const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+  if (perm !== 'granted') { showToast('Permission denied'); return; }
+  await loadAllCards();
+  showToast('Refreshed');
+}
+
+// ── LOAD CARDS ──
+async function loadAllCards() {
+  cards = [];
+  try {
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'file' && (entry.name.endsWith('.yaml') || entry.name.endsWith('.yml'))) {
+        try {
+          const file = await entry.getFile();
+          const text = await file.text();
+          const data = jsyaml.load(text);
+          if (data && data.title) {
+            cards.push({
+              ...data,
+              tags: (data.tags || []).map(t => String(t).toLowerCase().replace(/\s+/g,'')),
+              _filename: entry.name,
+              _raw: text,
+              id: entry.name,
+            });
+          }
+        } catch(e) { console.warn('Parse error:', entry.name, e); }
+      }
+    }
+    cards.sort((a,b) => a.title.localeCompare(b.title));
+    buildTagBar();
+    filterCards();
+  } catch(e) {
+    showToast('Error reading folder');
+    console.error(e);
+  }
+}
+
+// ── TAG BAR ──
+function buildTagBar() {
+  const allTags = new Set();
+  cards.forEach(c => (c.tags||[]).forEach(t => allTags.add(t)));
+  const bar = document.getElementById('tagBar');
+  bar.innerHTML = '';
+  if (allTags.size === 0) return;
+  const allChip = document.createElement('div');
+  allChip.className = 'tag-chip' + (activeTags.size === 0 ? ' active' : '');
+  allChip.textContent = 'All';
+  allChip.onclick = () => { activeTags.clear(); buildTagBar(); filterCards(); };
+  bar.appendChild(allChip);
+  [...allTags].sort().forEach(tag => {
+    const chip = document.createElement('div');
+    chip.className = 'tag-chip' + (activeTags.has(tag) ? ' active' : '');
+    chip.textContent = tag;
+    chip.onclick = () => {
+      activeTags.has(tag) ? activeTags.delete(tag) : activeTags.add(tag);
+      buildTagBar(); filterCards();
+    };
+    bar.appendChild(chip);
+  });
+}
+
+// ── FILTER ──
+function filterCards() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  filteredCards = cards.filter(card => {
+    if (activeTags.size > 0) {
+      const cardTags = card.tags || [];
+      if (![...activeTags].every(t => cardTags.includes(t))) return false;
+    }
+    if (!q) return true;
+    const searchable = [
+      card.title,
+      ...(card.tags || []),
+      ...getBlockTexts(card.blocks || []),
+    ].join(' ').toLowerCase();
+    return searchable.includes(q);
+  });
+  renderCards();
+}
+
+function getBlockTexts(blocks) {
+  const texts = [];
+  blocks.forEach(b => {
+    if (b.note) texts.push(b.note.text || '');
+    if (b.copy) texts.push(b.copy.value || '');
+    if (b.contact) texts.push(b.contact.name || '', String(b.contact.phone || ''));
+    if (b.checklist) (b.checklist.items||[]).forEach(i => texts.push(typeof i === 'string' ? i : i.text || ''));
+    if (b.number) texts.push(b.number.label || '');
+    if (b.price) texts.push(b.price.label || '');
+    if (b.multiline) { texts.push(b.multiline.label || ''); (b.multiline.lines||[]).forEach(l => texts.push(l)); }
+  });
+  return texts;
+}
+
+// ── RENDER CARDS ──
+function renderCards() {
+  const grid = document.getElementById('cardsGrid');
+  const empty = document.getElementById('emptyState');
+  if (filteredCards.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = '';
+  filteredCards.forEach(card => {
+    grid.appendChild(buildCardEl(card));
+  });
+}
+
+function buildCardEl(card) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.onclick = () => showDetail(card);
+
+  let headerHTML = `<div>
+    <div class="card-title">${esc(card.title)}</div>`;
+  if (card.tags && card.tags.length) {
+    headerHTML += `<div class="card-tags">${card.tags.map(t => `<span class="card-tag" data-tag="${esc(t)}" style="cursor:pointer">${esc(t)}</span>`).join('')}</div>`;
+  }
+  headerHTML += `</div><button class="card-menu-btn" onclick="event.stopPropagation();editCard('${esc(card._filename)}')">⋯</button>`;
+  el.innerHTML = `<div class="card-header">${headerHTML}</div><div class="card-blocks">${renderBlocksPreview(card.blocks||[])}</div>`;
+  // make card tags clickable
+  el.querySelectorAll('.card-tag[data-tag]').forEach(chip => {
+    chip.addEventListener('click', e => {
+      e.stopPropagation();
+      const tag = chip.getAttribute('data-tag');
+      activeTags.clear(); activeTags.add(tag);
+      buildTagBar(); filterCards();
+    });
+  });
+  return el;
+}
+
+function renderBlocksPreview(blocks) {
+  return blocks.slice(0,4).map(b => renderBlockHTML(b, true)).join('');
+}
+
+function renderBlockHTML(b, preview=false) {
+  if (b.location) {
+    const {url, label, lat, lon} = b.location;
+    // support both new url format and old lat/lon format
+    const mapsUrl = url || (lat && lon ? `https://maps.google.com/?q=${lat},${lon}` : null);
+    const displayLabel = label || url || (lat && lon ? `${lat}, ${lon}` : 'Location');
+    return `<div class="block location">
+      <span class="block-icon">📍</span>
+      <div class="block-body">
+        <div class="block-label">Location</div>
+        <div class="block-value">${esc(displayLabel)}</div>
+        ${!preview && mapsUrl ? `<div class="block-actions"><a class="btn-action primary" href="${esc(mapsUrl)}" target="_blank">🗺️ Open Maps</a></div>` : ''}
+        ${preview && mapsUrl ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Tap to open maps</div>` : ''}
+      </div></div>`;
+  }
+  if (b.checklist) {
+    const items = (b.checklist.items||[]).map((item, i) => {
+      const text = typeof item === 'string' ? item : (item.text || '');
+      const checked = typeof item === 'object' && item.checked;
+      return `<div class="checklist-item ${checked?'checked':''}" onclick="event.stopPropagation();toggleCheck(this,'${encodeURIComponent(JSON.stringify(b))}')" data-idx="${i}">
+        <div class="check-box"></div><span class="check-label">${esc(text)}</span></div>`;
+    });
+    return `<div class="block checklist">
+      <span class="block-icon">☑️</span>
+      <div class="block-body">
+        <div class="block-label">Checklist</div>
+        <div class="checklist-items">${items.join('')}</div>
+      </div></div>`;
+  }
+  if (b.contact) {
+    const {name, phone} = b.contact;
+    return `<div class="block contact">
+      <span class="block-icon">📞</span>
+      <div class="block-body">
+        <div class="block-label">Contact</div>
+        <div class="block-value">${esc(name || '')} ${esc(phone||'')}</div>
+        ${!preview ? `<div class="block-actions">
+          <a class="btn-action primary" href="tel:${esc(phone||'')}">📞 Call</a>
+          <button class="btn-action" onclick="copyText('${esc(phone||'')}')">📋 Copy</button>
+        </div>` : ''}
+      </div></div>`;
+  }
+  if (b.copy) {
+    const {value, label} = b.copy;
+    return `<div class="block copy">
+      <span class="block-icon">📋</span>
+      <div class="block-body">
+        <div class="block-label">${esc(label||'Copy Text')}</div>
+        <div class="block-value mono">${esc(value||'')}</div>
+        ${!preview ? `<div class="block-actions"><button class="btn-action primary" onclick="copyText('${(value||'').replace(/'/g,"\\'")}')">📋 Copy</button></div>` : ''}
+      </div></div>`;
+  }
+  if (b.note) {
+    const text = b.note.text || '';
+    const html = text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    return `<div class="block note">
+      <span class="block-icon">📝</span>
+      <div class="block-body">
+        <div class="block-label">Note</div>
+        <div class="note-content">${html}</div>
+      </div></div>`;
+  }
+  if (b.number) {
+    const {label, value, unit} = b.number;
+    return `<div class="block number">
+      <span class="block-icon">🔢</span>
+      <div class="block-body">
+        <div class="block-label">${esc(label||'Number')}</div>
+        <div class="number-value">${esc(String(value||''))} <span style="font-size:13px;color:var(--text-muted)">${esc(unit||'')}</span></div>
+      </div></div>`;
+  }
+  if (b.route) {
+    const {distance, duration, from, to} = b.route;
+    return `<div class="block route">
+      <span class="block-icon">🚗</span>
+      <div class="block-body">
+        <div class="block-label">Route${from&&to?' — '+esc(from)+' → '+esc(to):''}</div>
+        <div class="route-row">
+          ${distance ? `<div class="route-item"><div class="route-item-val">${esc(distance)}</div><div class="route-item-label">Distance</div></div>` : ''}
+          ${duration ? `<div class="route-item"><div class="route-item-val">${esc(duration)}</div><div class="route-item-label">Duration</div></div>` : ''}
+        </div>
+      </div></div>`;
+  }
+  if (b.reminder) {
+    const {date, note} = b.reminder;
+    const d = new Date(date);
+    const now = new Date();
+    const diff = (d - now) / 86400000;
+    const cls = diff < 0 ? 'past' : diff < 7 ? 'soon' : '';
+    const label = diff < 0 ? 'Past' : diff < 1 ? 'Today!' : diff < 7 ? `In ${Math.ceil(diff)} days` : d.toLocaleDateString();
+    return `<div class="block reminder">
+      <span class="block-icon">🔔</span>
+      <div class="block-body">
+        <div class="block-label">Reminder</div>
+        <span class="reminder-badge ${cls}">🔔 ${esc(date)} · ${label}</span>
+        ${note ? `<div class="block-value" style="margin-top:4px">${esc(note)}</div>` : ''}
+      </div></div>`;
+  }
+  if (b.price) {
+    const {label, amount, currency} = b.price;
+    const curr = currency || '₹';
+    const formatted = Number(amount).toLocaleString('en-IN');
+    return `<div class="block price">
+      <span class="block-icon">💰</span>
+      <div class="block-body">
+        <div class="block-label">${esc(label||'Price')}</div>
+        <div class="price-value"><span class="price-currency">${esc(curr)}</span>${formatted}</div>
+      </div></div>`;
+  }
+  if (b.multiline) {
+    const {label, lines} = b.multiline;
+    const displayed = (lines||[]).slice(0, preview ? 3 : undefined);
+    const more = preview && (lines||[]).length > 3 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">+${(lines||[]).length - 3} more lines</div>` : '';
+    return `<div class="block note">
+      <span class="block-icon">📄</span>
+      <div class="block-body">
+        <div class="block-label">${esc(label||'Text')}</div>
+        <div class="block-value" style="white-space:pre-wrap;font-family:inherit">${displayed.map(l=>esc(l)).join('\n')}</div>
+        ${more}
+      </div></div>`;
+  }
+  return '';
+}
+
+// ── DETAIL MODAL ──
+function showDetail(card) {
+  currentCard = card;
+  document.getElementById('detailTitle').textContent = card.title;
+  const tagsEl = document.getElementById('detailTags');
+  tagsEl.innerHTML = (card.tags||[]).map(t=>`<span class="card-tag">${esc(t)}</span>`).join('');
+  const body = document.getElementById('detailBody');
+  body.innerHTML = (card.blocks||[]).map(b => `<div class="detail-block">${renderBlockHTML(b, false)}</div>`).join('');
+  document.getElementById('detailOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDetail(e) {
+  if (e && e.target !== document.getElementById('detailOverlay')) return;
+  document.getElementById('detailOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  currentCard = null;
+}
+
+function editCurrentCard() {
+  const card = currentCard;
+  closeDetail();
+  setTimeout(() => editCard(card._filename), 200);
+}
+
+// ── EDITOR ──
+let editorBlocks = [];
+
+function showEditor(card) {
+  editorTags = [];
+  editorBlocks = [];
+  editingCardFile = null;
+  document.getElementById('editorTitle').textContent = 'New Card';
+  document.getElementById('editorCardTitle').value = '';
+  document.getElementById('tagsInputWrap').innerHTML = '<input id="tagInput" placeholder="Add tag, press Enter" onkeydown="handleTagInput(event)">';
+  document.getElementById('blockEditorList').innerHTML = '';
+  document.getElementById('addBlockPanel').style.display = 'none';
+  document.getElementById('editorOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function editCard(filename) {
+  const card = cards.find(c => c._filename === filename);
+  if (!card) return;
+  editingCardFile = filename;
+  editorTags = [...(card.tags||[])];
+  editorBlocks = JSON.parse(JSON.stringify(card.blocks||[]));
+  document.getElementById('editorTitle').textContent = 'Edit Card';
+  document.getElementById('editorCardTitle').value = card.title;
+  renderTagPills();
+  renderBlockEditors();
+  document.getElementById('addBlockPanel').style.display = 'none';
+  document.getElementById('editorOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEditor(e) {
+  if (e && e.target !== document.getElementById('editorOverlay')) return;
+  document.getElementById('editorOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function buildBlockTypeGrid() {
+  const grid = document.getElementById('blockTypeGrid');
+  grid.innerHTML = BLOCK_TYPES.map(bt =>
+    `<div class="block-type-btn" onclick="addBlock('${bt.type}')">
+      <span class="bt-icon">${bt.icon}</span>${bt.label}</div>`
+  ).join('');
+}
+
+function showAddBlockPanel() {
+  const panel = document.getElementById('addBlockPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function addBlock(type) {
+  let block = {};
+  if (type === 'location') block = { location: { url: '', label: '' } };
+  else if (type === 'checklist') block = { checklist: { items: [''] } };
+  else if (type === 'contact') block = { contact: { name: '', phone: '' } };
+  else if (type === 'copy') block = { copy: { label: '', value: '' } };
+  else if (type === 'note') block = { note: { text: '' } };
+  else if (type === 'number') block = { number: { label: '', value: '', unit: '' } };
+  else if (type === 'route') block = { route: { from: '', to: '', distance: '', duration: '' } };
+  else if (type === 'reminder') block = { reminder: { date: '', note: '' } };
+  else if (type === 'price') block = { price: { label: '', amount: '', currency: '₹' } };
+  else if (type === 'multiline') block = { multiline: { label: '', lines: [''] } };
+  editorBlocks.push(block);
+  renderBlockEditors();
+  document.getElementById('addBlockPanel').style.display = 'none';
+}
+
+function removeBlock(idx) {
+  editorBlocks.splice(idx, 1);
+  renderBlockEditors();
+}
+
+function renderBlockEditors() {
+  const list = document.getElementById('blockEditorList');
+  list.innerHTML = editorBlocks.map((b, i) => buildBlockEditorHTML(b, i)).join('');
+}
+
+function buildBlockEditorHTML(b, i) {
+  const rm = `<button class="block-remove-btn" onclick="removeBlock(${i})">✕</button>`;
+  if (b.location) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">📍 Location</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" placeholder="Google Maps URL (paste from Maps app)" value="${esc(b.location.url||'')}" oninput="editorBlocks[${i}].location.url=this.value">
+      <input class="editor-input" placeholder="Label e.g. Near Lulu Mall (optional)" value="${esc(b.location.label||'')}" oninput="editorBlocks[${i}].location.label=this.value">
+      <div class="editor-hint">In Google Maps: tap Share → Copy link, paste here.</div>
+    </div>`;
+  }
+  if (b.checklist) {
+    const itemsHTML = (b.checklist.items||[]).map((item, ii) => {
+      const text = typeof item === 'string' ? item : (item.text||'');
+      return `<div class="field-row" style="margin-bottom:6px">
+        <input class="editor-input" placeholder="Item ${ii+1}" value="${esc(text)}" oninput="updateChecklistItem(${i},${ii},this.value)">
+        <button class="btn-action" onclick="removeChecklistItem(${i},${ii})">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="block-editor-row">
+      <div class="block-type-label">☑️ Checklist</div>${rm}
+      ${itemsHTML}
+      <button class="btn-action" style="width:100%;justify-content:center;margin-top:4px" onclick="addChecklistItem(${i})">+ Add Item</button>
+    </div>`;
+  }
+  if (b.contact) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">📞 Contact</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" placeholder="Name (optional)" value="${esc(b.contact.name||'')}" oninput="editorBlocks[${i}].contact.name=this.value">
+      <input class="editor-input" placeholder="Phone number" value="${esc(b.contact.phone||'')}" oninput="editorBlocks[${i}].contact.phone=this.value" type="tel">
+    </div>`;
+  }
+  if (b.copy) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">📋 Copy Text</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" placeholder="Label" value="${esc(b.copy.label||'')}" oninput="editorBlocks[${i}].copy.label=this.value">
+      <input class="editor-input" placeholder="Text to copy" value="${esc(b.copy.value||'')}" oninput="editorBlocks[${i}].copy.value=this.value">
+    </div>`;
+  }
+  if (b.note) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">📝 Note</div>${rm}
+      <textarea class="editor-textarea" style="min-height:100px" placeholder="Note text (supports **bold**)" oninput="editorBlocks[${i}].note.text=this.value">${esc(b.note.text||'')}</textarea>
+    </div>`;
+  }
+  if (b.number) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">🔢 Number</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" placeholder="Label e.g. Daily ATM Limit" value="${esc(b.number.label||'')}" oninput="editorBlocks[${i}].number.label=this.value">
+      <div class="field-row">
+        <input class="editor-input" placeholder="Value" value="${esc(String(b.number.value||''))}" oninput="editorBlocks[${i}].number.value=this.value" type="number">
+        <input class="editor-input" placeholder="Unit (optional)" value="${esc(b.number.unit||'')}" oninput="editorBlocks[${i}].number.unit=this.value">
+      </div>
+    </div>`;
+  }
+  if (b.route) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">🚗 Route</div>${rm}
+      <div class="field-row" style="margin-bottom:6px">
+        <input class="editor-input" placeholder="From" value="${esc(b.route.from||'')}" oninput="editorBlocks[${i}].route.from=this.value">
+        <input class="editor-input" placeholder="To" value="${esc(b.route.to||'')}" oninput="editorBlocks[${i}].route.to=this.value">
+      </div>
+      <div class="field-row">
+        <input class="editor-input" placeholder="Distance e.g. 126km" value="${esc(b.route.distance||'')}" oninput="editorBlocks[${i}].route.distance=this.value">
+        <input class="editor-input" placeholder="Duration e.g. 4h" value="${esc(b.route.duration||'')}" oninput="editorBlocks[${i}].route.duration=this.value">
+      </div>
+    </div>`;
+  }
+  if (b.reminder) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">🔔 Reminder</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" type="date" value="${esc(b.reminder.date||'')}" oninput="editorBlocks[${i}].reminder.date=this.value">
+      <input class="editor-input" placeholder="Note (optional)" value="${esc(b.reminder.note||'')}" oninput="editorBlocks[${i}].reminder.note=this.value">
+    </div>`;
+  }
+  if (b.price) {
+    return `<div class="block-editor-row">
+      <div class="block-type-label">💰 Price / Money</div>${rm}
+      <input class="editor-input" style="margin-bottom:6px" placeholder="Label e.g. Ticket Price" value="${esc(b.price.label||'')}" oninput="editorBlocks[${i}].price.label=this.value">
+      <div class="field-row">
+        <input class="editor-input" placeholder="Currency symbol" value="${esc(b.price.currency||'₹')}" oninput="editorBlocks[${i}].price.currency=this.value" style="max-width:80px">
+        <input class="editor-input" placeholder="Amount" value="${esc(String(b.price.amount||''))}" oninput="editorBlocks[${i}].price.amount=this.value" type="number">
+      </div>
+    </div>`;
+  }
+  if (b.multiline) {
+    const lines = b.multiline.lines || [];
+    const lineInputs = lines.map((line, li) => `
+      <div class="field-row" style="margin-bottom:6px">
+        <input class="editor-input" placeholder="Line ${li+1}" value="${esc(line)}" oninput="editorBlocks[${i}].multiline.lines[${li}]=this.value">
+        <button class="btn-action" onclick="removeMultilineLine(${i},${li})">✕</button>
+      </div>`).join('');
+    return `<div class="block-editor-row">
+      <div class="block-type-label">📄 Multiline</div>${rm}
+      <input class="editor-input" style="margin-bottom:8px" placeholder="Label e.g. Instructions" value="${esc(b.multiline.label||'')}" oninput="editorBlocks[${i}].multiline.label=this.value">
+      ${lineInputs}
+      <button class="btn-action" style="width:100%;justify-content:center;margin-top:4px" onclick="addMultilineLine(${i})">+ Add Line</button>
+    </div>`;
+  }
+  return '';
+}
+
+function updateChecklistItem(bi, ii, val) {
+  const item = editorBlocks[bi].checklist.items[ii];
+  if (typeof item === 'string') editorBlocks[bi].checklist.items[ii] = val;
+  else editorBlocks[bi].checklist.items[ii].text = val;
+}
+
+function addChecklistItem(bi) {
+  editorBlocks[bi].checklist.items.push('');
+  renderBlockEditors();
+}
+
+function removeChecklistItem(bi, ii) {
+  editorBlocks[bi].checklist.items.splice(ii, 1);
+  renderBlockEditors();
+}
+
+function addMultilineLine(bi) {
+  editorBlocks[bi].multiline.lines.push('');
+  renderBlockEditors();
+}
+
+function removeMultilineLine(bi, li) {
+  editorBlocks[bi].multiline.lines.splice(li, 1);
+  renderBlockEditors();
+}
+
+// ── TAGS INPUT ──
+function normalizeTag(t) {
+  return t.toLowerCase().replace(/\s+/g, '');
+}
+
+function commitTagsFromInput(inputEl) {
+  const raw = inputEl ? inputEl.value : '';
+  raw.split(',').forEach(part => {
+    const tag = normalizeTag(part);
+    if (tag && !editorTags.includes(tag)) editorTags.push(tag);
+  });
+  if (inputEl) inputEl.value = '';
+}
+
+function renderTagPills() {
+  const wrap = document.getElementById('tagsInputWrap');
+  wrap.innerHTML = editorTags.map((t,i) =>
+    `<span class="tag-pill">${esc(t)}<span class="tag-pill-remove" onclick="removeTag(${i})">\u00d7</span></span>`
+  ).join('') + '<input id="tagInput" placeholder="finance, atm, travel \u2026" onkeydown="handleTagInput(event)" oninput="handleTagInputChange(this)">';
+}
+
+function handleTagInputChange(el) {
+  if (el.value.includes(',')) {
+    commitTagsFromInput(el);
+    renderTagPills();
+    const next = document.getElementById('tagInput');
+    if (next) next.focus();
+  }
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    commitTagsFromInput(e.target);
+    renderTagPills();
+    const next = document.getElementById('tagInput');
+    if (next) next.focus();
+  }
+  if (e.key === 'Backspace' && e.target.value === '' && editorTags.length) {
+    editorTags.pop(); renderTagPills();
+  }
+}
+
+function flushTagInput() {
+  const el = document.getElementById('tagInput');
+  if (el && el.value.trim()) { commitTagsFromInput(el); }
+}
+
+function removeTag(i) { editorTags.splice(i,1); renderTagPills(); }
+
+// ── SAVE CARD ──
+async function saveCard() {
+  flushTagInput(); // capture anything typed but not yet committed
+  const title = document.getElementById('editorCardTitle').value.trim();
+  if (!title) { showToast('Please enter a title'); return; }
+  if (!dirHandle) { showToast('No folder open'); return; }
+
+  // Clean blocks
+  const cleanBlocks = editorBlocks.map(b => {
+    const copy = JSON.parse(JSON.stringify(b));
+    if (copy.location) {
+      if (!copy.location.label) delete copy.location.label;
+      // keep url as-is; strip old lat/lon if empty
+      if (!copy.location.lat) delete copy.location.lat;
+      if (!copy.location.lon) delete copy.location.lon;
+    }
+    if (copy.number) copy.number.value = parseFloat(copy.number.value) || 0;
+    if (copy.price) copy.price.amount = parseFloat(copy.price.amount) || 0;
+    if (copy.checklist) {
+      copy.checklist.items = copy.checklist.items.filter(i => (typeof i==='string'?i:i.text||'').trim() !== '');
+    }
+    return copy;
+  }).filter(b => Object.keys(b).length > 0);
+
+  const cardData = { type: 'card', title, tags: editorTags, blocks: cleanBlocks };
+  const yamlStr = jsyaml.dump(cardData, { lineWidth: -1, noRefs: true });
+
+  const filename = editingCardFile || sanitizeFilename(title) + '.yaml';
+
+  // On new card only: check for title clash
+  if (!editingCardFile) {
+    const clash = cards.find(c => c.title.trim().toLowerCase() === title.trim().toLowerCase());
+    if (clash) {
+      showToast(`"${clash.title}" already exists — edit it instead`);
+      return;
+    }
+  }
+
+  try {
+    const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') { showToast('Write permission denied'); return; }
+    const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(yamlStr);
+    await writable.close();
+    showToast(editingCardFile ? 'Card updated ✓' : 'Card saved ✓');
+    closeEditor();
+    await loadAllCards();
+  } catch(e) {
+    showToast('Save failed: ' + e.message);
+    console.error(e);
+  }
+}
+
+function sanitizeFilename(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,50) || 'card-' + Date.now();
+}
+
+// ── CHECKLIST TOGGLE ──
+async function toggleCheck(el, blockJson) {
+  el.classList.toggle('checked');
+  // Update card data and save
+  if (!currentCard || !dirHandle) return;
+  const idx = parseInt(el.getAttribute('data-idx'));
+  const blocks = currentCard.blocks;
+  // find the checklist block
+  for (let b of blocks) {
+    if (b.checklist) {
+      const item = b.checklist.items[idx];
+      if (typeof item === 'string') {
+        b.checklist.items[idx] = { text: item, checked: el.classList.contains('checked') };
+      } else if (item) {
+        item.checked = el.classList.contains('checked');
+      }
+      break;
+    }
+  }
+  // Save back
+  try {
+    const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') return;
+    const cardData = { type: 'card', title: currentCard.title, tags: currentCard.tags, blocks };
+    const yamlStr = jsyaml.dump(cardData, { lineWidth: -1, noRefs: true });
+    const fileHandle = await dirHandle.getFileHandle(currentCard._filename, { create: false });
+    const writable = await fileHandle.createWritable();
+    await writable.write(yamlStr);
+    await writable.close();
+  } catch(e) { console.warn('Checklist save failed', e); }
+}
+
+// ── COPY ──
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Copied ✓')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('Copied ✓');
+  });
+}
+
+// ── STATUS ──
+function setStatus(color, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (color==='green'?'':color==='error'?' error':' idle');
+  document.getElementById('statusText').textContent = text;
+}
+
+function showEmptyState() {
+  document.getElementById('cardsGrid').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── UTILS ──
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── IDB HANDLE STORAGE ──
+function openIDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('cards-pwa', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = e => rej(e);
+  });
+}
+
+async function saveHandleToIDB(handle) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(handle, 'dir');
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+
+async function getHandleFromIDB() {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('handles', 'readonly');
+    const req = tx.objectStore('handles').get('dir');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = rej;
+  });
+}
+</script>
+</body>
+</html>
